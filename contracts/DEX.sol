@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 //error DEX_alreadyHasLiquidity();
 error DEX_nullValue();
 error DEX_TokenTransferFailed();
-error DEX_TransferFailed();
+error DEX_TransferFailed(uint256);
 error DEX_NotEnoughLiquidity();
 
 contract DEX {
@@ -65,7 +65,7 @@ contract DEX {
         );
         (bool sent, ) = payable(msg.sender).call{value: amountOfEthOut}("");
         if (!sent) {
-            revert DEX_TransferFailed();
+            revert DEX_TransferFailed(amountOfEthOut);
         }
         // .transferFrom(msg.sender, address(this), amountOfEth);
         // emit BuyTokens(msg.sender, msg.value, amountOfTokens);
@@ -89,8 +89,8 @@ contract DEX {
         //uint256 liquidityOut = liquidity[msg.sender];
         uint256 ethReserve = address(this).balance;
         uint256 tokenReserve = token.balanceOf(address(this));
-        uint256 tokenAmount = (liquidityAmount / totalLiquidity) * ethReserve; //(ratio * totalLiquidity) / ethReserve;
-        uint256 ethAmount = (liquidityAmount / totalLiquidity) * tokenReserve;
+        uint256 tokenAmount = (liquidityAmount * tokenReserve) / totalLiquidity; //(ratio * totalLiquidity) / ethReserve;
+        uint256 ethAmount = (liquidityAmount * ethReserve) / totalLiquidity;
         liquidity[msg.sender] -= liquidityAmount;
         totalLiquidity -= liquidityAmount;
         bool transfered = token.transfer(msg.sender, tokenAmount);
@@ -99,13 +99,9 @@ contract DEX {
         }
         (bool sent, ) = payable(msg.sender).call{value: ethAmount}("");
         if (!sent) {
-            revert DEX_TransferFailed();
+            revert DEX_TransferFailed(ethAmount);
         }
         return (ethAmount, tokenAmount);
-    }
-
-    function getRatio() public view returns (uint256) {
-        return token.balanceOf(address(this)) / address(this).balance;
     }
 
     function getAmountOut(
@@ -126,5 +122,9 @@ contract DEX {
 
     function getAccountLiquidity(address account) public view returns (uint256) {
         return liquidity[account];
+    }
+
+    function getTokenAddress() public view returns (IERC20) {
+        return token;
     }
 }

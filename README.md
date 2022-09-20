@@ -1,1 +1,1 @@
-decentralized exchange contract
+Decentralized exchange smart contract

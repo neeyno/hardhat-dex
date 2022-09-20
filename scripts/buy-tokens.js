@@ -1,22 +1,23 @@
 const { ethers, network } = require("hardhat")
-const { developmentChains } = require("../helper-hardhat-config")
+//const { developmentChains } = require("../helper-hardhat-config")
 
-async function main() {
-    const [deployer, acc1] = await ethers.getSigners()
+async function buy() {
+    const [, user] = await ethers.getSigners()
     //const chainId = network.config.chainId.toString()
-    const vendor = await ethers.getContract("Vendor")
-    const token = await ethers.getContract("TokenVendor")
-    const ethAmount = ethers.utils.parseEther("0.1")
+    const dex = await ethers.getContract("DEX")
+    const token = await ethers.getContract("ExoticToken")
+    const ethAmount = ethers.utils.parseEther("10")
 
-    const buyTx = await vendor.connect(acc1).buyTokens({ value: ethAmount })
+    console.log("buying tokens...")
+    const buyTx = await dex.connect(user).ethToToken({ value: ethAmount })
     await buyTx.wait(1)
 
-    const tokenBalance = await token.balanceOf(acc1.address)
-    console.log(ethers.utils.formatUnits(tokenBalance, 18) + " tokens")
+    const tokenBalance = await token.balanceOf(user.address)
+    console.log(`User token balance: ${ethers.utils.formatUnits(tokenBalance, 18)} EXT`)
     console.log("------------------------------------------")
 }
 
-main()
+buy()
     .then(() => process.exit(0))
     .catch((error) => {
         console.log(error)

@@ -1,29 +1,27 @@
 const { ethers, network } = require("hardhat")
 const { developmentChains } = require("../helper-hardhat-config")
 
-async function main() {
-    const [deployer, acc1] = await ethers.getSigners()
+async function sell() {
+    const [, user] = await ethers.getSigners()
     //const chainId = network.config.chainId.toString()
-    const vendor = await ethers.getContract("Vendor")
-    const token = await ethers.getContract("TokenVendor")
+    const dex = await ethers.getContract("DEX")
+    const token = await ethers.getContract("ExoticToken")
+    const userTokenBefore = await token.balanceOf(user.address)
 
-    const tokenAmount = "1"
-    const ethAmount = ethers.utils.parseEther(tokenAmount)
-
-    console.log("Approving...")
-    const approveTx = await token.connect(acc1).approve(vendor.address, ethAmount)
+    console.log("approving...")
+    const approveTx = await token.connect(user).approve(dex.address, userTokenBefore)
     await approveTx.wait(1)
 
-    console.log("Selling tokens...")
-    const sellTx = await vendor.connect(acc1).sellTokens(ethAmount)
+    console.log("selling tokens...")
+    const sellTx = await dex.connect(user).tokenToEth(userTokenBefore)
     await sellTx.wait(1)
 
-    const tokenBalance = await token.balanceOf(acc1.address)
-    console.log(ethers.utils.formatUnits(tokenBalance, 18) + " tokens")
+    const userTokenAfter = await token.balanceOf(user.address)
+    console.log(`User token balance: ${ethers.utils.formatUnits(userTokenAfter, 18)} EXT`)
     console.log("------------------------------------------")
 }
 
-main()
+sell()
     .then(() => process.exit(0))
     .catch((error) => {
         console.log(error)

@@ -17,7 +17,7 @@ const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || "other key"
 const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY || "other key"
 
 module.exports = {
-    solidity: "0.8.8",
+    solidity: "0.8.7",
     defaultNetwork: "hardhat",
     networks: {
         rinkeby: {
