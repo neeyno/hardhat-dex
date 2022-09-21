@@ -1,20 +1,21 @@
 const { ethers, network } = require("hardhat")
-const { developmentChains } = require("../helper-hardhat-config")
 
-async function main() {
+//const
+
+async function withdraw(liquidityAmount) {
     const [deployer, user] = await ethers.getSigners()
-    const vendor = await ethers.getContract("Vendor")
-    //const token = await ethers.getContract("TokenVendor")
-    const ethAmount = ethers.utils.parseEther("0.1")
-    const contractBalance = await ethers.provider.getBalance(vendor.address)
+    const dex = await ethers.getContract("DEX")
+    const token = await ethers.getContract("ExoticToken")
+    const liquidityValue = ethers.utils.parseUnits(liquidityAmount, 36)
 
-    console.log(`Withdrawing ${ethers.utils.formatUnits(contractBalance, 18)} ETH...`)
-    const withdrawTx = await vendor.connect(user).withdraw()
+    console.log(`withdrawing liquidity...`)
+    const withdrawTx = await dex.connect(user).withdraw(liquidityValue)
     await withdrawTx.wait(1)
-    console.log("------------------------------------------")
+
+    console.log(`Withdrawn liquidity: ${ethers.utils.formatUnits(withdrawTx, 36)}`)
 }
 
-main()
+withdraw(100)
     .then(() => process.exit(0))
     .catch((error) => {
         console.log(error)
