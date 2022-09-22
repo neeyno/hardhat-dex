@@ -8,6 +8,7 @@ error DEX_nullValue();
 error DEX_TokenTransferFailed();
 error DEX_TransferFailed();
 error DEX_NotEnoughLiquidity();
+error DEX_alreadyHasLiquidity();
 
 contract DEX {
     /* GLOBAL VARIABLES */
@@ -34,16 +35,30 @@ contract DEX {
         token = IERC20(tokenAddress);
     }
 
-    function deposite(uint256 tokenAmount) public payable returns (uint256) {
+    function init(uint256 tokenAmount) public payable returns (uint256) {
+        if (totalLiquidity != 0) {
+            revert DEX_alreadyHasLiquidity();
+        }
+        totalLiquidity = msg.value * tokenAmount;
+        liquidity[msg.sender] = totalLiquidity;
+        if (!token.transferFrom(msg.sender, address(this), tokenAmount)) {
+            revert DEX_TokenTransferFailed();
+        }
+        return totalLiquidity;
+    }
+
+    function deposit() public payable {
+        uint256 ethReserve = address(this).balance - msg.value;
+        uint256 tokenReserve = token.balanceOf(address(this));
+        uint256 newLiquidity = (msg.value * totalLiquidity) / ethReserve;
+        uint256 tokenAmount = (newLiquidity * tokenReserve) / totalLiquidity;
         bool transfered = token.transferFrom(msg.sender, address(this), tokenAmount);
         if (!transfered) {
             revert DEX_TokenTransferFailed();
         }
-        uint256 newLiquidity = msg.value * tokenAmount;
-        totalLiquidity = address(this).balance * token.balanceOf(address(this));
+        totalLiquidity += newLiquidity;
         liquidity[msg.sender] += newLiquidity;
-        emit LiquidityUpdate(msg.sender, "deposite", totalLiquidity);
-        return newLiquidity;
+        emit LiquidityUpdate(msg.sender, "deposit", totalLiquidity);
     }
 
     function withdraw(uint256 liquidityAmount) public returns (uint256, uint256) {
@@ -56,7 +71,7 @@ contract DEX {
         uint256 tokenAmount = (liquidityAmount * tokenReserve) / totalLiquidity; //(ratio * totalLiquidity) / ethReserve;
         uint256 ethAmount = (liquidityAmount * ethReserve) / totalLiquidity;
         liquidity[msg.sender] -= liquidityAmount;
-        totalLiquidity = (ethReserve - ethAmount) * (tokenReserve - tokenAmount);
+        totalLiquidity -= liquidityAmount;
         bool transfered = token.transfer(msg.sender, tokenAmount);
         if (!transfered) {
             revert DEX_TokenTransferFailed();
@@ -132,15 +147,3 @@ contract DEX {
         return token;
     }
 }
-
-// function init(uint256 tokens) public payable returns (uint256) {
-//     if (totalLiquidity != 0) {
-//         revert DEX_alreadyHasLiquidity();
-//     }
-//     totalLiquidity = address(this).balance * token.balanceOf(address(this));
-//     liquidity[msg.sender] = totalLiquidity;
-//     if (!token.transferFrom(msg.sender, address(this), tokens)) {
-//         revert DEX_TokenTransferFailed();
-//     }
-//     return totalLiquidity;
-// }

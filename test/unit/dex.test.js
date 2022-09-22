@@ -1,20 +1,24 @@
 const { assert, expect } = require("chai")
 const { ethers, deployments, getNamedAccounts, network } = require("hardhat")
-const { developmentChains, networkConfig } = require("../../helper-hardhat-config")
+const {
+    developmentChains,
+    INITIAL_ETH_LIQUIDITY,
+    INITIAL_TOKEN_LIQUIDITY,
+} = require("../../helper-hardhat-config")
 
 !developmentChains.includes(network.name)
     ? describe.skip
     : describe("Decentralized Exchange unit test", async function () {
           let dex, token, deployer, accounts
 
-          const ethValue = ethers.utils.parseEther("1")
-          const tokenValue = ethers.utils.parseEther("500")
+          const ETH_VALUE = ethers.utils.parseEther("1")
+          const TOKEN_VALUE = ethers.utils.parseEther("1000")
 
           beforeEach(async function () {
               //deployer = (await getNamedAccounts()).deployer
               accounts = await ethers.getSigners()
               deployer = accounts[0]
-              await deployments.fixture(["token", "dex"])
+              await deployments.fixture(["all"])
               dex = await ethers.getContract("DEX", deployer)
               token = await ethers.getContract("ExoticToken", deployer)
           })
@@ -22,6 +26,7 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
           describe("Contructor", function () {
               it("should set the token address", async function () {
                   const actualTokenAddress = await dex.getTokenAddress()
+
                   assert.equal(actualTokenAddress, token.address)
               })
           })
@@ -33,91 +38,136 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
                       tokenBalanceBefore = await token.balanceOf(dex.address)
                       liquidityBefore = await dex.getTotalLiquidity()
                       ethBalanceBefore = await ethers.provider.getBalance(dex.address)
-                      await token.approve(dex.address, tokenValue)
-                      await dex.deposite(tokenValue, { value: ethValue })
+                      await token.approve(dex.address, TOKEN_VALUE)
+                      await dex.deposit({ value: ETH_VALUE })
                   })
 
                   it("receives tokens", async function () {
                       const tokenBalanceAfter = await token.balanceOf(dex.address)
-                      assert.equal(tokenBalanceBefore.toString(), "0")
-                      assert.equal(tokenBalanceAfter.toString(), tokenValue.toString())
+                      const expectedTokenBalance = TOKEN_VALUE.add(tokenBalanceBefore)
+
+                      assert.equal(tokenBalanceAfter.toString(), expectedTokenBalance.toString())
                   })
 
                   it("receives eth", async function () {
                       const ethBalanceAfter = await ethers.provider.getBalance(dex.address)
-                      assert.equal(ethBalanceBefore.toString(), "0")
-                      assert.equal(ethBalanceAfter.toString(), ethValue.toString())
+                      const expectedEthBalance = INITIAL_ETH_LIQUIDITY.add(ETH_VALUE)
+
+                      assert.equal(ethBalanceAfter.toString(), expectedEthBalance.toString())
                   })
 
-                  it("updates total liquidity", async function () {
-                      const expectedLiquidity = tokenValue.mul(ethValue)
+                  it("adds deposited liquidity", async function () {
+                      const expectedLiquidity = liquidityBefore.add(
+                          ETH_VALUE.mul(liquidityBefore).div(ethBalanceBefore)
+                      )
                       const liquidityAfter = await dex.getTotalLiquidity()
-                      assert.equal(liquidityBefore.toString(), "0")
+
                       assert.equal(liquidityAfter.toString(), expectedLiquidity.toString())
                   })
 
-                  it("tracks sender liquidity", async function () {
-                      const expectedLiquidity = tokenValue.mul(ethValue)
+                  it("tracks sender deposit", async function () {
+                      const expectedLiquidity = liquidityBefore.add(
+                          ETH_VALUE.mul(liquidityBefore).div(ethBalanceBefore)
+                      )
                       const senderLiquidity = await dex.getAccountLiquidity(deployer.address)
+
                       assert.equal(senderLiquidity.toString(), expectedLiquidity.toString())
                   })
-                  it("emits event", async function () {})
-                  it("returns value", async function () {})
+
+                  it("emits LiquidityUpdate event", async function () {
+                      const liquidity = await dex.getTotalLiquidity()
+                      const ethBalance = await ethers.provider.getBalance(dex.address)
+                      const expectedLiquidity = liquidity.add(
+                          ETH_VALUE.mul(liquidity).div(ethBalance)
+                      )
+                      await token.approve(dex.address, TOKEN_VALUE)
+
+                      await expect(dex.deposit({ value: ETH_VALUE }))
+                          .to.emit(dex, "LiquidityUpdate")
+                          .withArgs(deployer.address, "deposit", expectedLiquidity)
+                  })
               })
 
               describe("Withdraw", function () {
-                  const depositedLiquidity = tokenValue.mul(ethValue)
+                  const depositedLiquidity = TOKEN_VALUE.mul(ETH_VALUE)
 
                   beforeEach(async function () {
-                      await token.approve(dex.address, tokenValue)
-                      await dex.deposite(tokenValue, { value: ethValue })
+                      await token.approve(dex.address, TOKEN_VALUE)
+                      await dex.deposit({ value: ETH_VALUE })
                       tokenBalanceBefore = await token.balanceOf(dex.address)
                       liquidityBefore = await dex.getTotalLiquidity()
                       ethBalanceBefore = await ethers.provider.getBalance(dex.address)
                       await dex.withdraw(depositedLiquidity)
                   })
 
-                  it("checks requested liquidity value", async function () {
-                      const falseLiquidityValue = tokenValue.mul(ethers.utils.parseEther("2"))
+                  it("checks sender liquidity value", async function () {
+                      const falseLiquidityValue = depositedLiquidity.mul(10)
+
                       await expect(dex.withdraw(falseLiquidityValue)).to.be.revertedWith(
                           "DEX_NotEnoughLiquidity()"
                       )
                   })
 
                   it("updates sender liquidity", async function () {
-                      //await dex.withdraw(depositedLiquidity)
                       const senderLiquidity = await dex.getAccountLiquidity(deployer.address)
-                      assert.equal(senderLiquidity.toString(), "0")
+                      const expectedLiquidity = TOKEN_VALUE.mul(ETH_VALUE)
+
+                      assert.equal(
+                          senderLiquidity.toString(),
+                          expectedLiquidity,
+                          "equal to initial 1000"
+                      )
                   })
 
                   it("updates total liquidity", async function () {
                       const liquidityAfter = await dex.getTotalLiquidity()
+                      const expectedLiquidity = TOKEN_VALUE.mul(ETH_VALUE)
 
-                      assert.equal(liquidityBefore.toString(), depositedLiquidity.toString())
-                      assert.equal(liquidityAfter.toString(), "0")
+                      assert.equal(
+                          liquidityAfter.toString(),
+                          expectedLiquidity,
+                          "equal to initial 1000"
+                      )
                   })
 
                   it("should transfer token", async function () {
+                      const expectedTokenBalance = tokenBalanceBefore.sub(TOKEN_VALUE)
                       const tokenBalanceAfter = await token.balanceOf(dex.address)
-                      assert.equal(tokenBalanceBefore.toString(), tokenValue.toString())
-                      assert.equal(tokenBalanceAfter.toString(), "0")
+
+                      assert.equal(
+                          tokenBalanceAfter.toString(),
+                          expectedTokenBalance.toString(),
+                          "equal 1000 tokens"
+                      )
                   })
 
                   it("should transfer Eth", async function () {
-                      ethBalanceAfter = await ethers.provider.getBalance(dex.address)
-                      assert.equal(ethBalanceBefore.toString(), ethValue.toString())
-                      assert.equal(ethBalanceAfter.toString(), "0")
+                      const ethBalanceAfter = await ethers.provider.getBalance(dex.address)
+                      const expectedEthBalance = ethBalanceBefore.sub(ETH_VALUE)
+
+                      assert.equal(
+                          ethBalanceAfter.toString(),
+                          expectedEthBalance.toString(),
+                          "equal 1 eth"
+                      )
                   })
 
-                  it("emits event", async function () {})
+                  it("emits LiquidityUpdate event", async function () {
+                      liquidityBefore = await dex.getTotalLiquidity()
+                      const expectedLiquidity = liquidityBefore.sub(depositedLiquidity)
+                      await expect(dex.withdraw(depositedLiquidity))
+                          .to.emit(dex, "LiquidityUpdate")
+                          .withArgs(deployer.address, "withdraw", expectedLiquidity)
+                  })
+
                   it("returns value", async function () {})
               })
           })
 
           describe("Swap", function () {
               beforeEach(async function () {
-                  await token.approve(dex.address, tokenValue + tokenValue)
-                  await dex.deposite(tokenValue, { value: ethValue })
+                  await token.approve(dex.address, TOKEN_VALUE)
+                  await dex.deposit({ value: ETH_VALUE })
               })
 
               describe("Eth to Token", function () {
