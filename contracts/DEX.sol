@@ -8,7 +8,7 @@ error DEX_nullValue();
 error DEX_TokenTransferFailed();
 error DEX_TransferFailed();
 error DEX_NotEnoughLiquidity();
-error DEX_alreadyHasLiquidity();
+error DEX_alreadyInit();
 
 contract DEX {
     /* GLOBAL VARIABLES */
@@ -35,16 +35,15 @@ contract DEX {
         token = IERC20(tokenAddress);
     }
 
-    function init(uint256 tokenAmount) public payable returns (uint256) {
+    function init(uint256 tokenAmount) public payable {
         if (totalLiquidity != 0) {
-            revert DEX_alreadyHasLiquidity();
+            revert DEX_alreadyInit();
         }
-        totalLiquidity = msg.value * tokenAmount;
-        liquidity[msg.sender] = totalLiquidity;
         if (!token.transferFrom(msg.sender, address(this), tokenAmount)) {
             revert DEX_TokenTransferFailed();
         }
-        return totalLiquidity;
+        totalLiquidity = msg.value * tokenAmount;
+        liquidity[msg.sender] = totalLiquidity;
     }
 
     function deposit() public payable {
@@ -131,8 +130,8 @@ contract DEX {
         // dy = y * dx / (x + dx)
         uint256 xInputWithFee = xInput * 998; // dx  // 0.2 % fee
         uint256 divisible = yReserve * xInputWithFee; // y * dx
-        uint256 divider = xReserve * 1000 + xInputWithFee; // (x + dx)
-        return (divisible / divider); // dy
+        uint256 divisor = xReserve * 1000 + xInputWithFee; // (x + dx)
+        return (divisible / divisor); // dy
     }
 
     function getTotalLiquidity() public view returns (uint256) {

@@ -31,6 +31,49 @@ const {
               })
           })
 
+          describe("Initialization", function () {
+              const initialLiquidity = INITIAL_ETH_LIQUIDITY.mul(INITIAL_TOKEN_LIQUIDITY)
+
+              //   beforeEach(async function () {
+              //       await deployments.fixture(["token", "dex"])
+              //       dex = await ethers.getContract("DEX", deployer)
+              //       token = await ethers.getContract("ExoticToken", deployer)
+              //   })
+
+              it("should init only once", async function () {
+                  //   await dex.init(INITIAL_TOKEN_LIQUIDITY, {
+                  //       value: INITIAL_ETH_LIQUIDITY,
+                  //   })
+
+                  await expect(dex.init(0, { value: 0 })).to.be.revertedWith("DEX_alreadyInit()")
+              })
+
+              it("sets initial liquidity", async function () {
+                  const actualTotalLiquidity = await dex.getTotalLiquidity()
+
+                  assert.equal(actualTotalLiquidity.toString(), initialLiquidity.toString())
+              })
+
+              it("updates sender liquidity balance", async function () {
+                  const senderLiquidity = await dex.getAccountLiquidity(deployer.address)
+
+                  assert.equal(senderLiquidity.toString(), initialLiquidity.toString())
+              })
+
+              it("receives initial token supply", async function () {
+                  const expectedTokenBalance = INITIAL_TOKEN_LIQUIDITY
+                  const dexTokenBalance = await token.balanceOf(dex.address)
+
+                  assert.equal(dexTokenBalance.toString(), expectedTokenBalance.toString())
+              })
+              it("receives initial Eth supply", async function () {
+                  const expectedEthBalance = INITIAL_ETH_LIQUIDITY
+                  const dexEthBalance = await ethers.provider.getBalance(dex.address)
+
+                  assert.equal(dexEthBalance.toString(), expectedEthBalance.toString())
+              })
+          })
+
           describe("Liquidity", function () {
               let liquidityBefore, tokenBalanceBefore, ethBalanceBefore
               describe("Deposit", function () {
@@ -160,69 +203,136 @@ const {
                           .withArgs(deployer.address, "withdraw", expectedLiquidity)
                   })
 
-                  it("returns value", async function () {})
+                  it("returns eth and token value", async function () {
+                      const [ethAmount, tokenAmount] = await dex.callStatic.withdraw(
+                          depositedLiquidity
+                      )
+                      assert.equal(ethAmount.toString(), ETH_VALUE.toString())
+                      assert.equal(tokenAmount.toString(), TOKEN_VALUE.toString())
+                  })
               })
           })
 
           describe("Swap", function () {
-              beforeEach(async function () {
-                  await token.approve(dex.address, TOKEN_VALUE)
-                  await dex.deposit({ value: ETH_VALUE })
-              })
-
               describe("Eth to Token", function () {
+                  const ethValueToSwap = ethers.utils.parseEther("0.1")
+
+                  //   beforeEach(async function () {
+                  //       await token.approve(dex.address, TOKEN_VALUE)
+                  //       await dex.deposit({ value: ETH_VALUE })
+                  //   })
+
                   it("checks null eth value", async function () {
                       await expect(dex.ethToToken()).to.be.revertedWith("DEX_nullValue()")
                   })
 
-                  // not supported by Hardhat
-                  //   it("calls transfer tokens to buyer", async function () {
-                  //       const testEthValue = ethers.utils.parseEther("0.1")
-                  //       const expectedTokenValue = await dex.getAmountOut(
-                  //           testEthValue,
-                  //           await ethers.provider.getBalance(dex.address),
-                  //           await token.balanceOf(dex.address)
-                  //       )
-                  //       await dex.ethToToken({ value: testEthValue })
-                  //       expect("transfer").to.be.calledOnContractWith(token, [
-                  //           deployer,
-                  //           expectedTokenValue,
-                  //       ])
-                  //   })
-
                   it("transfers tokens to buyer", async function () {
-                      const ethValueToSell = ethers.utils.parseEther("0.1")
                       const expectedTokenValue = await dex.getAmountOut(
-                          ethValueToSell,
+                          ethValueToSwap,
                           await ethers.provider.getBalance(dex.address),
                           await token.balanceOf(dex.address)
                       )
 
                       await expect(() =>
-                          dex.ethToToken({ value: ethValueToSell })
+                          dex.ethToToken({ value: ethValueToSwap })
                       ).to.changeTokenBalance(token, deployer, expectedTokenValue)
                   })
 
-                  it("value", async function () {})
+                  it("receives eth", async function () {
+                      await expect(
+                          await dex.ethToToken({ value: ethValueToSwap })
+                      ).to.changeEtherBalance(dex, ethValueToSwap)
+                  })
+
+                  it("emits event AssetSwap ethToToken", async function () {
+                      const expectedTokenValue = await dex.getAmountOut(
+                          ethValueToSwap,
+                          await ethers.provider.getBalance(dex.address),
+                          await token.balanceOf(dex.address)
+                      )
+
+                      await expect(dex.ethToToken({ value: ethValueToSwap }))
+                          .to.emit(dex, "AssetSwap")
+                          .withArgs(
+                              deployer.address,
+                              ethValueToSwap,
+                              expectedTokenValue,
+                              "ethToToken"
+                          )
+                  })
+
+                  it("returns token output", async function () {
+                      const expectedTokenValue = await dex.getAmountOut(
+                          ethValueToSwap,
+                          await ethers.provider.getBalance(dex.address),
+                          await token.balanceOf(dex.address)
+                      )
+                      const returnedTokenValue = await dex.callStatic.ethToToken({
+                          value: ethValueToSwap,
+                      })
+
+                      assert.equal(returnedTokenValue.toString(), expectedTokenValue.toString())
+                  })
               })
 
               describe("Token to Eth", function () {
+                  const tokenValueToSwap = ethers.utils.parseEther("100")
+
+                  beforeEach(async function () {
+                      await token.approve(dex.address, tokenValueToSwap)
+                  })
+
                   it("checks null token value", async function () {
                       await expect(dex.tokenToEth(0)).to.be.revertedWith("DEX_nullValue()")
                   })
 
+                  it("receives tokens from buyer", async function () {
+                      await expect(() => dex.tokenToEth(tokenValueToSwap)).to.changeTokenBalance(
+                          token,
+                          dex,
+                          tokenValueToSwap
+                      )
+                  })
+
                   it("transfers eth to buyer", async function () {
-                      const tokenValueToSell = ethers.utils.parseEther("100")
                       const expectedEthValue = await dex.getAmountOut(
-                          tokenValueToSell,
+                          tokenValueToSwap,
                           await token.balanceOf(dex.address),
                           await ethers.provider.getBalance(dex.address)
                       )
 
-                      await expect(await dex.tokenToEth(tokenValueToSell)).to.changeEtherBalance(
+                      await expect(await dex.tokenToEth(tokenValueToSwap)).to.changeEtherBalance(
                           deployer,
                           expectedEthValue
                       )
+                  })
+
+                  it("emits event AssetSwap tokenToEth", async function () {
+                      const expectedEthValue = await dex.getAmountOut(
+                          tokenValueToSwap,
+                          await token.balanceOf(dex.address),
+                          await ethers.provider.getBalance(dex.address)
+                      )
+
+                      await expect(dex.tokenToEth(tokenValueToSwap))
+                          .to.emit(dex, "AssetSwap")
+                          .withArgs(
+                              deployer.address,
+                              tokenValueToSwap,
+                              expectedEthValue,
+                              "tokenToEth"
+                          )
+                  })
+
+                  it("returns eth output", async function () {
+                      const expectedEthValue = await dex.getAmountOut(
+                          tokenValueToSwap,
+                          await token.balanceOf(dex.address),
+                          await ethers.provider.getBalance(dex.address)
+                      )
+                      const returnedEthValue = await dex.callStatic.tokenToEth(tokenValueToSwap)
+
+                      assert.equal(returnedEthValue.toString(), expectedEthValue.toString())
                   })
               })
           })
