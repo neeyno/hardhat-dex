@@ -134,6 +134,27 @@ contract DEX {
         return (divisible / divisor); // dy
     }
 
+    function getConversionRate(uint256 xInput, bool ethToToken) public view returns (uint256) {
+        uint256 xReserve;
+        uint256 yReserve;
+        if (ethToToken) {
+            xReserve = address(this).balance;
+            yReserve = token.balanceOf(address(this));
+        } else {
+            xReserve = token.balanceOf(address(this));
+            yReserve = address(this).balance;
+        }
+        // dy = y * dx / (x + dx)
+        uint256 xInputWithFee = xInput * 998; // dx  // 0.2 % fee
+        uint256 divisible = yReserve * xInputWithFee; // y * dx
+        uint256 divisor = xReserve * 1000 + xInputWithFee; // (x + dx)
+        return (divisible / divisor); // dy
+    }
+
+    function getContractBalances() public view returns (uint256, uint256) {
+        return (address(this).balance, token.balanceOf(address(this)));
+    }
+
     function getTotalLiquidity() public view returns (uint256) {
         return totalLiquidity;
     }

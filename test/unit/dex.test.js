@@ -99,7 +99,7 @@ const {
                       assert.equal(ethBalanceAfter.toString(), expectedEthBalance.toString())
                   })
 
-                  it("adds deposited liquidity", async function () {
+                  it("updates total liquidity", async function () {
                       const expectedLiquidity = liquidityBefore.add(
                           ETH_VALUE.mul(liquidityBefore).div(ethBalanceBefore)
                       )
@@ -108,7 +108,7 @@ const {
                       assert.equal(liquidityAfter.toString(), expectedLiquidity.toString())
                   })
 
-                  it("tracks sender deposit", async function () {
+                  it("updates sender deposit", async function () {
                       const expectedLiquidity = liquidityBefore.add(
                           ETH_VALUE.mul(liquidityBefore).div(ethBalanceBefore)
                       )
