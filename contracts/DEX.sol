@@ -17,17 +17,20 @@ contract DEX {
     mapping(address => uint256) private liquidity;
 
     /* EVENTS */
-    event AssetSwap(
-        address indexed buyer,
-        uint256 indexed input,
-        uint256 indexed output,
-        string asset
+    event Swap(address indexed buyer, uint256 indexed input, uint256 indexed output, string asset);
+
+    event Deposit(
+        address indexed sender,
+        uint256 indexed ethAmount,
+        uint256 indexed tokenAmount,
+        uint256 liquidityAmount
     );
 
-    event LiquidityUpdate(
+    event Withdrawal(
         address indexed sender,
-        string indexed call,
-        uint256 indexed liquidityPool
+        uint256 indexed ethAmount,
+        uint256 indexed tokenAmount,
+        uint256 liquidityAmount
     );
 
     /* FUNCTIONS */
@@ -46,7 +49,8 @@ contract DEX {
         liquidity[msg.sender] = totalLiquidity;
     }
 
-    function deposit() public payable {
+    function deposit() public payable /*returns (bool) */
+    {
         uint256 ethReserve = address(this).balance - msg.value;
         uint256 tokenReserve = token.balanceOf(address(this));
         uint256 newLiquidity = (msg.value * totalLiquidity) / ethReserve;
@@ -57,14 +61,14 @@ contract DEX {
         }
         totalLiquidity += newLiquidity;
         liquidity[msg.sender] += newLiquidity;
-        emit LiquidityUpdate(msg.sender, "deposit", totalLiquidity);
+        emit Deposit(msg.sender, msg.value, tokenAmount, totalLiquidity);
+        //return true;
     }
 
     function withdraw(uint256 liquidityAmount) public returns (uint256, uint256) {
         if (liquidity[msg.sender] < liquidityAmount) {
             revert DEX_NotEnoughLiquidity();
         }
-        //uint256 liquidityOut = liquidity[msg.sender];
         uint256 ethReserve = address(this).balance;
         uint256 tokenReserve = token.balanceOf(address(this));
         uint256 tokenAmount = (liquidityAmount * tokenReserve) / totalLiquidity; //(ratio * totalLiquidity) / ethReserve;
@@ -79,7 +83,7 @@ contract DEX {
         if (!sent) {
             revert DEX_TransferFailed();
         }
-        emit LiquidityUpdate(msg.sender, "withdraw", totalLiquidity);
+        emit Withdrawal(msg.sender, ethAmount, tokenAmount, totalLiquidity);
         return (ethAmount, tokenAmount);
     }
 
@@ -96,7 +100,7 @@ contract DEX {
         if (!transfered) {
             revert DEX_TokenTransferFailed();
         }
-        emit AssetSwap(msg.sender, msg.value, tokenAmountOut, "ethToToken");
+        emit Swap(msg.sender, msg.value, tokenAmountOut, "ethToToken");
         return tokenAmountOut;
     }
 
@@ -117,7 +121,7 @@ contract DEX {
         if (!sent) {
             revert DEX_TransferFailed();
         }
-        emit AssetSwap(msg.sender, tokenAmount, ethAmountOut, "tokenToEth");
+        emit Swap(msg.sender, tokenAmount, ethAmountOut, "tokenToEth");
         return ethAmountOut;
     }
 
@@ -127,23 +131,6 @@ contract DEX {
         uint256 xReserve,
         uint256 yReserve
     ) public pure returns (uint256) {
-        // dy = y * dx / (x + dx)
-        uint256 xInputWithFee = xInput * 998; // dx  // 0.2 % fee
-        uint256 divisible = yReserve * xInputWithFee; // y * dx
-        uint256 divisor = xReserve * 1000 + xInputWithFee; // (x + dx)
-        return (divisible / divisor); // dy
-    }
-
-    function getConversionRate(uint256 xInput, bool ethToToken) public view returns (uint256) {
-        uint256 xReserve;
-        uint256 yReserve;
-        if (ethToToken) {
-            xReserve = address(this).balance;
-            yReserve = token.balanceOf(address(this));
-        } else {
-            xReserve = token.balanceOf(address(this));
-            yReserve = address(this).balance;
-        }
         // dy = y * dx / (x + dx)
         uint256 xInputWithFee = xInput * 998; // dx  // 0.2 % fee
         uint256 divisible = yReserve * xInputWithFee; // y * dx
@@ -167,3 +154,20 @@ contract DEX {
         return token;
     }
 }
+
+// function getConversionRate(uint256 xInput, bool ethToken) public view returns (uint256) {
+//     uint256 xReserve;
+//     uint256 yReserve;
+//     if (ethToken) {
+//         xReserve = address(this).balance;
+//         yReserve = token.balanceOf(address(this));
+//     } else {
+//         xReserve = token.balanceOf(address(this));
+//         yReserve = address(this).balance;
+//     }
+//     // dy = y * dx / (x + dx)
+//     uint256 xInputWithFee = xInput * 998; // dx  // 0.2 % fee
+//     uint256 divisible = yReserve * xInputWithFee; // y * dx
+//     uint256 divisor = xReserve * 1000 + xInputWithFee; // (x + dx)
+//     return (divisible / divisor); // dy
+// }

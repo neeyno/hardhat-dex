@@ -117,18 +117,30 @@ const {
                       assert.equal(senderLiquidity.toString(), expectedLiquidity.toString())
                   })
 
-                  it("emits LiquidityUpdate event", async function () {
+                  it("emits Deposit event", async function () {
                       const liquidity = await dex.getTotalLiquidity()
                       const ethBalance = await ethers.provider.getBalance(dex.address)
-                      const expectedLiquidity = liquidity.add(
-                          ETH_VALUE.mul(liquidity).div(ethBalance)
-                      )
+                      const tokenBalance = await token.balanceOf(dex.address)
+                      const newLiquidity = ETH_VALUE.mul(liquidity).div(ethBalance)
+                      const expectedLiquidity = liquidity.add(newLiquidity)
+                      const expectedTokenDeposit = newLiquidity.mul(tokenBalance).div(liquidity)
                       await token.approve(dex.address, TOKEN_VALUE)
 
                       await expect(dex.deposit({ value: ETH_VALUE }))
-                          .to.emit(dex, "LiquidityUpdate")
-                          .withArgs(deployer.address, "deposit", expectedLiquidity)
+                          .to.emit(dex, "Deposit")
+                          .withArgs(
+                              deployer.address,
+                              ETH_VALUE,
+                              expectedTokenDeposit,
+                              expectedLiquidity
+                          )
                   })
+
+                  //   it("returns ", async function () {
+                  //       const [ethAmount, tokenAmount] = await dex.callStatic.withdraw(
+                  //           depositedLiquidity
+                  //       )
+                  //   })
               })
 
               describe("Withdraw", function () {
@@ -195,20 +207,32 @@ const {
                       )
                   })
 
-                  it("emits LiquidityUpdate event", async function () {
+                  it("emits Withdrawal event", async function () {
                       liquidityBefore = await dex.getTotalLiquidity()
                       const expectedLiquidity = liquidityBefore.sub(depositedLiquidity)
-                      await expect(dex.withdraw(depositedLiquidity))
-                          .to.emit(dex, "LiquidityUpdate")
-                          .withArgs(deployer.address, "withdraw", expectedLiquidity)
-                  })
-
-                  it("returns eth and token value", async function () {
                       const [ethAmount, tokenAmount] = await dex.callStatic.withdraw(
                           depositedLiquidity
                       )
+
+                      await expect(dex.withdraw(depositedLiquidity))
+                          .to.emit(dex, "Withdrawal")
+                          .withArgs(deployer.address, ethAmount, tokenAmount, expectedLiquidity)
+                  })
+
+                  it("returns eth and token value", async function () {
+                      const liquidity = await dex.getTotalLiquidity()
+                      //const ethBalance = await ethers.provider.getBalance(dex.address)
+                      const tokenBalance = await token.balanceOf(dex.address)
+                      //const newLiquidity = ETH_VALUE.mul(liquidity).div(ethBalance)
+                      const expectedTokenWithdraw = depositedLiquidity
+                          .mul(tokenBalance)
+                          .div(liquidity)
+                      const [ethAmount, tokenAmount] = await dex.callStatic.withdraw(
+                          depositedLiquidity
+                      )
+
                       assert.equal(ethAmount.toString(), ETH_VALUE.toString())
-                      assert.equal(tokenAmount.toString(), TOKEN_VALUE.toString())
+                      assert.equal(tokenAmount.toString(), expectedTokenWithdraw.toString())
                   })
               })
           })

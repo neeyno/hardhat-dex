@@ -1,8 +1,8 @@
 const { network, ethers } = require("hardhat")
 const fs = require("fs")
 
-const FRONTEND_ADDRESSES_FILE = "../mixes/nextjs-dex/constants/contractAddresses.json"
-const FRONTEND_ABI_LOCATION = "../mixes/nextjs-dex/constants/"
+const FRONTEND_ADDRESSES_FILE = "../mixes/nextjs-dex/lib/contractAddresses.json"
+const FRONTEND_ABI_LOCATION = "../mixes/nextjs-dex/lib/"
 
 async function updateContractAddresses() {
     const dex = await ethers.getContract("DEX")
