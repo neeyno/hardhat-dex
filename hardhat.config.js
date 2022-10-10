@@ -11,8 +11,12 @@ require("hardhat-contract-sizer")
  * @type import('hardhat/config').HardhatUserConfig
  */
 
-const ALCHEMY_RINKEBY_URL = process.env.ALCHEMY_RINKEBY_URL || "https://eth-rinkeby/example..."
+const RINKEBY_RPC_URL = process.env.ALCHEMY_RINKEBY_URL || "https://eth-rinkeby/example..."
+const GOERLI_RPC_URL = process.env.ALCHEMY_GOERLI_URL || "https://eth-goerli/example..."
 const PRIVATE_KEY = process.env.PRIVATE_KEY || "0x141..."
+// optional
+//const MNEMONIC = process.env.MNEMONIC
+
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || "other key"
 const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY || "other key"
 
@@ -21,9 +25,15 @@ module.exports = {
     defaultNetwork: "hardhat",
     networks: {
         rinkeby: {
-            url: ALCHEMY_RINKEBY_URL,
+            url: RINKEBY_RPC_URL,
             accounts: [PRIVATE_KEY],
             chainId: 4, // rinkeby chainId is 4
+            blockConfirmations: 6,
+        },
+        goerli: {
+            url: GOERLI_RPC_URL,
+            accounts: [PRIVATE_KEY],
+            chainId: 5, //  chainId is 5
             blockConfirmations: 6,
         },
         hardhat: {
@@ -48,6 +58,7 @@ module.exports = {
         // yarn hardhat verify --network <NETWORK> <CONTRACT_ADDRESS> <CONSTRUCTOR_PARAMETERS>
         apiKey: {
             rinkeby: ETHERSCAN_API_KEY,
+            goerli: ETHERSCAN_API_KEY,
         },
     },
     gasReporter: {

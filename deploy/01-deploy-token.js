@@ -1,14 +1,15 @@
 const { network, getNamedAccounts, deployments } = require("hardhat")
-const { developmentChains, INITIAL_TOKEN_SUPPLY } = require("../helper-hardhat-config")
+const { developmentChains, networkConfig } = require("../helper-hardhat-config")
 const { verify } = require("../utils/verify")
 
 module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deploy, log } = deployments
     const { deployer } = await getNamedAccounts()
-    //const chainId = network.config.chainId
+    const chainId = network.config.chainId
+    const tokenSupply = networkConfig[chainId]["tokenSupply"]
 
     log(`Network: ${network.name}`)
-    const tokenArgs = [INITIAL_TOKEN_SUPPLY]
+    const tokenArgs = [tokenSupply]
     const token = await deploy("ExoticToken", {
         contract: "ExoticToken",
         from: deployer,
@@ -25,4 +26,4 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     log("------------------------------------------")
 }
 
-module.exports.tags = ["all", "token"]
+module.exports.tags = ["all", "token", "test"]

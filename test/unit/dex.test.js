@@ -1,10 +1,10 @@
 const { assert, expect } = require("chai")
 const { ethers, deployments, getNamedAccounts, network } = require("hardhat")
-const {
-    developmentChains,
-    INITIAL_ETH_LIQUIDITY,
-    INITIAL_TOKEN_LIQUIDITY,
-} = require("../../helper-hardhat-config")
+const { developmentChains, networkConfig } = require("../../helper-hardhat-config")
+
+const chainId = network.config.chainId
+const INITIAL_ETH_LIQUIDITY = networkConfig[chainId]["initEthLiquidity"]
+const INITIAL_TOKEN_LIQUIDITY = networkConfig[chainId]["initTokenLiquidity"]
 
 !developmentChains.includes(network.name)
     ? describe.skip
@@ -18,7 +18,7 @@ const {
               //deployer = (await getNamedAccounts()).deployer
               accounts = await ethers.getSigners()
               deployer = accounts[0]
-              await deployments.fixture(["all"])
+              await deployments.fixture(["test"])
               dex = await ethers.getContract("DEX", deployer)
               token = await ethers.getContract("ExoticToken", deployer)
           })
@@ -268,7 +268,7 @@ const {
                       ).to.changeEtherBalance(dex, ethValueToSwap)
                   })
 
-                  it("emits event AssetSwap ethToToken", async function () {
+                  it("emits event Swap ethToToken", async function () {
                       const expectedTokenValue = await dex.getAmountOut(
                           ethValueToSwap,
                           await ethers.provider.getBalance(dex.address),
@@ -276,7 +276,7 @@ const {
                       )
 
                       await expect(dex.ethToToken({ value: ethValueToSwap }))
-                          .to.emit(dex, "AssetSwap")
+                          .to.emit(dex, "Swap")
                           .withArgs(
                               deployer.address,
                               ethValueToSwap,
@@ -331,7 +331,7 @@ const {
                       )
                   })
 
-                  it("emits event AssetSwap tokenToEth", async function () {
+                  it("emits event Swap tokenToEth", async function () {
                       const expectedEthValue = await dex.getAmountOut(
                           tokenValueToSwap,
                           await token.balanceOf(dex.address),
@@ -339,7 +339,7 @@ const {
                       )
 
                       await expect(dex.tokenToEth(tokenValueToSwap))
-                          .to.emit(dex, "AssetSwap")
+                          .to.emit(dex, "Swap")
                           .withArgs(
                               deployer.address,
                               tokenValueToSwap,

@@ -1,5 +1,5 @@
 const { network, getNamedAccounts, deployments, ethers } = require("hardhat")
-const { INITIAL_TOKEN_LIQUIDITY, INITIAL_ETH_LIQUIDITY } = require("../helper-hardhat-config")
+const { networkConfig } = require("../helper-hardhat-config")
 
 module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deploy, log, get } = deployments
@@ -7,22 +7,24 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     //const [deployer] = await ethers.getSigners()
     const token = await ethers.getContract("ExoticToken", deployer)
     const dex = await ethers.getContract("DEX", deployer)
+    const chainId = network.config.chainId
+    const initTokenLiquidity = networkConfig[chainId]["initTokenLiquidity"]
+    const initEthLiquidity = networkConfig[chainId]["initEthLiquidity"]
 
     const deployerBalance = await token.balanceOf(deployer)
     log(`Total tokens amount: ${ethers.utils.formatUnits(deployerBalance, 18)}`)
 
     log("approving tokens...")
-    const approveTx = await token.approve(dex.address, INITIAL_TOKEN_LIQUIDITY)
+    const approveTx = await token.approve(dex.address, initTokenLiquidity)
     await approveTx.wait(1)
     log("Approved!")
 
     log("depositing initial liquidity...")
-    const depositeTx = await dex.init(INITIAL_TOKEN_LIQUIDITY, {
-        value: INITIAL_ETH_LIQUIDITY,
+    const depositTx = await dex.init(initTokenLiquidity, {
+        value: initEthLiquidity,
     })
-    await depositeTx.wait(1)
-    // const transferTx = await token.transfer(dex.address, INITIAL_SUPPLY)
-    // await transferTx.wait(1)
+    await depositTx.wait(1)
+
     const dexTokenBalance = await token.balanceOf(dex.address)
     const dexEthBalance = await ethers.provider.getBalance(dex.address)
     const dexLiquidity = await dex.getTotalLiquidity()
@@ -34,4 +36,4 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     log("------------------------------------------")
 }
 
-module.exports.tags = ["all", "setup"]
+module.exports.tags = ["all", "setup", "test"]

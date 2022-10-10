@@ -18,3 +18,9 @@ const verify = async (contractAddress, args) => {
 }
 
 module.exports = { verify }
+
+// await run("verify:verify", {
+//     address: contractAddress,
+//     constructorArguments: args,
+//     contract: "contracts/ExoticToken.sol:ExoticToken",
+// })

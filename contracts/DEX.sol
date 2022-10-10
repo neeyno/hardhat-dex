@@ -3,6 +3,7 @@
 pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 error DEX_nullValue();
 error DEX_TokenTransferFailed();
@@ -10,7 +11,7 @@ error DEX_TransferFailed();
 error DEX_NotEnoughLiquidity();
 error DEX_alreadyInit();
 
-contract DEX {
+contract DEX is ReentrancyGuard {
     /* GLOBAL VARIABLES */
     IERC20 private immutable token;
     uint256 private totalLiquidity;
@@ -65,7 +66,7 @@ contract DEX {
         //return true;
     }
 
-    function withdraw(uint256 liquidityAmount) public returns (uint256, uint256) {
+    function withdraw(uint256 liquidityAmount) public nonReentrant returns (uint256, uint256) {
         if (liquidity[msg.sender] < liquidityAmount) {
             revert DEX_NotEnoughLiquidity();
         }
