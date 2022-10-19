@@ -5,7 +5,7 @@ require("@nomiclabs/hardhat-etherscan")
 require("hardhat-deploy")
 require("hardhat-gas-reporter")
 require("solidity-coverage")
-require("hardhat-contract-sizer")
+//require("hardhat-contract-sizer")
 
 /**
  * @type import('hardhat/config').HardhatUserConfig
@@ -21,7 +21,15 @@ const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || "other key"
 const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY || "other key"
 
 module.exports = {
-    solidity: "0.8.7",
+    solidity: {
+        version: "0.8.13",
+        settings: {
+            optimizer: {
+                enabled: true,
+                runs: 200,
+            },
+        },
+    },
     defaultNetwork: "hardhat",
     networks: {
         rinkeby: {
@@ -62,13 +70,13 @@ module.exports = {
         },
     },
     gasReporter: {
-        enabled: false,
+        enabled: true,
         outputFile: "gas-report.txt",
         noColors: true,
         currency: "USD",
         //coinmarketcap: COINMARKETCAP_API_KEY,
     },
     mocha: {
-        timeout: 500000, // 300sec max
+        timeout: 300000, // 1000 = 1sec
     },
 }
