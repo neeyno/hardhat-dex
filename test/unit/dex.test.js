@@ -122,25 +122,26 @@ const INITIAL_TOKEN_LIQUIDITY = networkConfig[chainId]["initTokenLiquidity"]
                       const ethBalance = await ethers.provider.getBalance(dex.address)
                       const tokenBalance = await token.balanceOf(dex.address)
                       const newLiquidity = ETH_VALUE.mul(liquidity).div(ethBalance)
-                      const expectedLiquidity = liquidity.add(newLiquidity)
+                      //const expectedLiquidity = liquidity.add(newLiquidity)
                       const expectedTokenDeposit = newLiquidity.mul(tokenBalance).div(liquidity)
                       await token.approve(dex.address, TOKEN_VALUE)
 
                       await expect(dex.deposit({ value: ETH_VALUE }))
                           .to.emit(dex, "Deposit")
-                          .withArgs(
-                              deployer.address,
-                              ETH_VALUE,
-                              expectedTokenDeposit,
-                              expectedLiquidity
-                          )
+                          .withArgs(deployer.address, ETH_VALUE, expectedTokenDeposit)
                   })
 
-                  //   it("returns ", async function () {
-                  //       const [ethAmount, tokenAmount] = await dex.callStatic.withdraw(
-                  //           depositedLiquidity
-                  //       )
-                  //   })
+                  it("returns token amount", async function () {
+                      const liquidity = await dex.getTotalLiquidity()
+                      const ethBalance = await ethers.provider.getBalance(dex.address)
+                      const tokenBalance = await token.balanceOf(dex.address)
+                      const newLiquidity = ETH_VALUE.mul(liquidity).div(ethBalance)
+                      const expectedTokenDeposit = newLiquidity.mul(tokenBalance).div(liquidity)
+                      await token.approve(dex.address, TOKEN_VALUE)
+                      const tokenAmount = await dex.callStatic.deposit({ value: ETH_VALUE })
+
+                      assert.equal(tokenAmount.toString(), expectedTokenDeposit.toString())
+                  })
               })
 
               describe("Withdraw", function () {
@@ -207,16 +208,16 @@ const INITIAL_TOKEN_LIQUIDITY = networkConfig[chainId]["initTokenLiquidity"]
                       )
                   })
 
-                  it("emits Withdrawal event", async function () {
-                      liquidityBefore = await dex.getTotalLiquidity()
-                      const expectedLiquidity = liquidityBefore.sub(depositedLiquidity)
+                  it("emits Withdraw event", async function () {
+                      //liquidityBefore = await dex.getTotalLiquidity()
+                      //const expectedLiquidity = liquidityBefore.sub(depositedLiquidity)
                       const [ethAmount, tokenAmount] = await dex.callStatic.withdraw(
                           depositedLiquidity
                       )
 
                       await expect(dex.withdraw(depositedLiquidity))
-                          .to.emit(dex, "Withdrawal")
-                          .withArgs(deployer.address, ethAmount, tokenAmount, expectedLiquidity)
+                          .to.emit(dex, "Withdraw")
+                          .withArgs(deployer.address, ethAmount, tokenAmount)
                   })
 
                   it("returns eth and token value", async function () {
@@ -250,12 +251,25 @@ const INITIAL_TOKEN_LIQUIDITY = networkConfig[chainId]["initTokenLiquidity"]
                       await expect(dex.ethToToken()).to.be.revertedWith("DEX_nullValue()")
                   })
 
-                  it("transfers tokens to buyer", async function () {
-                      const expectedTokenValue = await dex.getAmountOut(
-                          ethValueToSwap,
-                          await ethers.provider.getBalance(dex.address),
-                          await token.balanceOf(dex.address)
-                      )
+                  it("should transfer tokens to buyer", async function () {
+                      //   const expectedTokenValue = await dex.getAmountOut(
+                      //       ethValueToSwap,
+                      //       await ethers.provider.getBalance(dex.address),
+                      //       await token.balanceOf(dex.address)
+                      //   )
+                      //   const liquidity = await dex.getTotalLiquidity()
+
+                      // uint256 xInputWithFee = xInput * 998; // dx  // 0.2 % fee
+                      // uint256 divisible = yReserve * xInputWithFee; // y * dx
+                      // uint256 divisor = xReserve * 1000 + xInputWithFee; // (x + dx)
+                      // return (divisible / divisor); // dy
+                      const ethBalance = await ethers.provider.getBalance(dex.address)
+                      const tokenBalance = await token.balanceOf(dex.address)
+
+                      const xInput = ethValueToSwap.mul(998)
+                      const divisible = tokenBalance.mul(xInput)
+                      const divisor = ethBalance.mul(1000).add(xInput)
+                      const expectedTokenValue = divisible.div(divisor)
 
                       await expect(() =>
                           dex.ethToToken({ value: ethValueToSwap })
@@ -268,7 +282,7 @@ const INITIAL_TOKEN_LIQUIDITY = networkConfig[chainId]["initTokenLiquidity"]
                       ).to.changeEtherBalance(dex, ethValueToSwap)
                   })
 
-                  it("emits event Swap ethToToken", async function () {
+                  it("emits event EthToToken", async function () {
                       const expectedTokenValue = await dex.getAmountOut(
                           ethValueToSwap,
                           await ethers.provider.getBalance(dex.address),
@@ -276,13 +290,8 @@ const INITIAL_TOKEN_LIQUIDITY = networkConfig[chainId]["initTokenLiquidity"]
                       )
 
                       await expect(dex.ethToToken({ value: ethValueToSwap }))
-                          .to.emit(dex, "Swap")
-                          .withArgs(
-                              deployer.address,
-                              ethValueToSwap,
-                              expectedTokenValue,
-                              "ethToToken"
-                          )
+                          .to.emit(dex, "EthToToken")
+                          .withArgs(deployer.address, ethValueToSwap, expectedTokenValue)
                   })
 
                   it("returns token output", async function () {
@@ -291,11 +300,11 @@ const INITIAL_TOKEN_LIQUIDITY = networkConfig[chainId]["initTokenLiquidity"]
                           await ethers.provider.getBalance(dex.address),
                           await token.balanceOf(dex.address)
                       )
-                      const returnedTokenValue = await dex.callStatic.ethToToken({
+                      const actualTokenValue = await dex.callStatic.ethToToken({
                           value: ethValueToSwap,
                       })
 
-                      assert.equal(returnedTokenValue.toString(), expectedTokenValue.toString())
+                      assert.equal(actualTokenValue.toString(), expectedTokenValue.toString())
                   })
               })
 
@@ -319,11 +328,19 @@ const INITIAL_TOKEN_LIQUIDITY = networkConfig[chainId]["initTokenLiquidity"]
                   })
 
                   it("transfers eth to buyer", async function () {
-                      const expectedEthValue = await dex.getAmountOut(
-                          tokenValueToSwap,
-                          await token.balanceOf(dex.address),
-                          await ethers.provider.getBalance(dex.address)
-                      )
+                      //   const expectedEthValue = await dex.getAmountOut(
+                      //       tokenValueToSwap,
+                      //       await token.balanceOf(dex.address),
+                      //       await ethers.provider.getBalance(dex.address)
+                      //   )
+
+                      const ethBalance = await ethers.provider.getBalance(dex.address)
+                      const tokenBalance = await token.balanceOf(dex.address)
+
+                      const xInput = tokenValueToSwap.mul(998)
+                      const divisible = ethBalance.mul(xInput)
+                      const divisor = tokenBalance.mul(1000).add(xInput)
+                      const expectedEthValue = divisible.div(divisor)
 
                       await expect(await dex.tokenToEth(tokenValueToSwap)).to.changeEtherBalance(
                           deployer,
@@ -331,7 +348,7 @@ const INITIAL_TOKEN_LIQUIDITY = networkConfig[chainId]["initTokenLiquidity"]
                       )
                   })
 
-                  it("emits event Swap tokenToEth", async function () {
+                  it("emits event TokenToEth", async function () {
                       const expectedEthValue = await dex.getAmountOut(
                           tokenValueToSwap,
                           await token.balanceOf(dex.address),
@@ -339,13 +356,8 @@ const INITIAL_TOKEN_LIQUIDITY = networkConfig[chainId]["initTokenLiquidity"]
                       )
 
                       await expect(dex.tokenToEth(tokenValueToSwap))
-                          .to.emit(dex, "Swap")
-                          .withArgs(
-                              deployer.address,
-                              tokenValueToSwap,
-                              expectedEthValue,
-                              "tokenToEth"
-                          )
+                          .to.emit(dex, "TokenToEth")
+                          .withArgs(deployer.address, tokenValueToSwap, expectedEthValue)
                   })
 
                   it("returns eth output", async function () {
@@ -354,9 +366,9 @@ const INITIAL_TOKEN_LIQUIDITY = networkConfig[chainId]["initTokenLiquidity"]
                           await token.balanceOf(dex.address),
                           await ethers.provider.getBalance(dex.address)
                       )
-                      const returnedEthValue = await dex.callStatic.tokenToEth(tokenValueToSwap)
+                      const actualEthValue = await dex.callStatic.tokenToEth(tokenValueToSwap)
 
-                      assert.equal(returnedEthValue.toString(), expectedEthValue.toString())
+                      assert.equal(actualEthValue.toString(), expectedEthValue.toString())
                   })
               })
           })
