@@ -1,22 +1,45 @@
 import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
+//import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import {
+  TokenKTN__factory,
+  TokenKTN,
+  Exchange__factory,
+  Exchange,
+} from "../typechain-types";
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import { BigNumber } from "ethers";
 
-describe("DeFi unit test", function () {
+describe("Exchange test", function () {
   async function deployExchange() {
-    const [deployer] = await ethers.getSigners();
-
-    const initialTokenSupply = ethers.utils.parseUnits("2000", 18);
-
-    const Token = await ethers.getContractFactory("Token");
-    const token = await Token.deploy("NaniSwap", "NST", initialTokenSupply);
-
-    const Exchange = await ethers.getContractFactory("Exchange");
-    const exchange = await Exchange.deploy(token.address);
+    const [deployer]: SignerWithAddress[] = await ethers.getSigners();
+    const initialTokenSupply: BigNumber = ethers.utils.parseUnits("2000", 18);
+    const Token: TokenKTN__factory = await ethers.getContractFactory(
+      "TokenKTN"
+    );
+    const token: TokenKTN = await Token.deploy(
+      "NaniSwapV1",
+      "NST",
+      initialTokenSupply
+    );
+    const Exchange: Exchange__factory = await ethers.getContractFactory(
+      "Exchange"
+    );
+    const exchange: Exchange = await Exchange.deploy(token.address);
 
     return { token, exchange, deployer, initialTokenSupply };
   }
+
+  it("deploys", async () => {
+    const { deployer, exchange } = await loadFixture(deployExchange);
+
+    expect(await exchange.deployed()).to.equal(exchange);
+    expect(await exchange.name()).to.equal("NaniSwapV1");
+    expect(await exchange.symbol()).to.equal("NST");
+    expect(await exchange.totalSupply()).to.equal(0);
+    expect(await exchange.factoryAddress()).to.equal(deployer.address);
+  });
 
   describe("addLiquidity", async () => {
     it("adds liquidity", async () => {
@@ -24,7 +47,7 @@ describe("DeFi unit test", function () {
         deployExchange
       );
 
-      const ethLiquidity = ethers.utils.parseEther("100");
+      const ethLiquidity: BigNumber = ethers.utils.parseEther("1000");
 
       await token.approve(exchange.address, initialTokenSupply);
       await exchange.addLiquidity(initialTokenSupply, { value: ethLiquidity });
@@ -41,7 +64,7 @@ describe("DeFi unit test", function () {
       deployExchange
     );
 
-    const ethLiquidity = ethers.utils.parseUnits("1000", 18);
+    const ethLiquidity: BigNumber = ethers.utils.parseUnits("1000", 18);
 
     await token.approve(exchange.address, initialTokenSupply);
     await exchange.addLiquidity(initialTokenSupply, { value: ethLiquidity });
@@ -59,7 +82,7 @@ describe("DeFi unit test", function () {
     it("returns correct token amount", async () => {
       const { exchange } = await loadFixture(deployAddLiquidity);
 
-      let tokensOut = await exchange.getTokenAmount(
+      const tokensOut = await exchange.getTokenAmount(
         ethers.utils.parseUnits("1", 18)
       );
       expect(ethers.utils.formatEther(tokensOut)).to.equal(
@@ -72,7 +95,7 @@ describe("DeFi unit test", function () {
     it("returns correct eth amount", async () => {
       const { exchange } = await loadFixture(deployAddLiquidity);
 
-      let ethOut = await exchange.getEthAmount(
+      const ethOut = await exchange.getEthAmount(
         ethers.utils.parseUnits("2", 18)
       );
       expect(ethers.utils.formatEther(ethOut)).to.equal("0.989020869339354039");

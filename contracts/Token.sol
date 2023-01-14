@@ -5,7 +5,7 @@ pragma solidity 0.8.17;
 
 import "@rari-capital/solmate/src/tokens/ERC20.sol";
 
-contract Token is ERC20 {
+contract TokenKTN is ERC20 {
     constructor(
         string memory name,
         string memory symbol,
