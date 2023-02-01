@@ -1,5 +1,6 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+import "hardhat-deploy";
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -7,7 +8,7 @@ const config: HardhatUserConfig = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 2000,
+        runs: 200,
       },
     },
   },
@@ -15,19 +16,19 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       chainId: 31337,
-      //saveDeployments: true,
+      saveDeployments: true,
     },
     localhost: {
       url: "http://127.0.0.1:8545/",
       chainId: 31337,
-      //saveDeployments: true,
+      saveDeployments: true,
     },
   },
-  // namedAccounts: {
-  //   deployer: {
-  //     default: 0, // here this will by default take the first account as deployer
-  //   },
-  // },
+  namedAccounts: {
+    deployer: {
+      default: 0, // here this will by default take the first account as deployer
+    },
+  },
 };
 
 export default config;
