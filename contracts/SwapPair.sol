@@ -6,7 +6,8 @@ import {IERC20} from "./interfaces/IERC20.sol";
 import {Math} from "./libraries/Math.sol";
 import {SwapPairInternal} from "./libraries/SwapPairInternal.sol";
 
-contract SwapPair is SwapPairInternal, ERC20, Math {
+contract SwapPair is SwapPairInternal, ERC20 {
+    using Math for uint;
     uint256 constant MINIMUM_LIQUIDITY = 1000;
 
     address public token0;
@@ -33,11 +34,10 @@ contract SwapPair is SwapPairInternal, ERC20, Math {
         uint256 liquidity;
 
         if (totalSupply == 0) {
-            liquidity = Math.sqrt(amount0 * amount1) - MINIMUM_LIQUIDITY;
+            liquidity = (amount0 * amount1).sqrt() - MINIMUM_LIQUIDITY;
             _mint(address(0), MINIMUM_LIQUIDITY);
         } else {
-            liquidity = Math.min(
-                (amount0 * totalSupply) / _reserve0,
+            liquidity = ((amount0 * totalSupply) / _reserve0).min(
                 (amount1 * totalSupply) / _reserve1
             );
         }
