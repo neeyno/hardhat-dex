@@ -29,13 +29,13 @@ const fromWei = (value: BigNumber) => ethers.utils.formatEther(value)
               tokenB = await ethers.getContract("TokenB")
           })
 
-          beforeEach(async function () {
-              await tokenA.transfer(pair.address, toWei(1))
-              await tokenB.transfer(pair.address, toWei(1))
-              await pair.mint()
-          })
-
           describe("mint() - add liquidity", function () {
+              beforeEach(async function () {
+                  await tokenA.transfer(pair.address, toWei(1))
+                  await tokenB.transfer(pair.address, toWei(1))
+                  await pair.mint()
+              })
+
               it("provides initial liquidity", async function () {
                   const [reserveA, reserveB] = await pair.getReserves()
 
@@ -63,6 +63,12 @@ const fromWei = (value: BigNumber) => ethers.utils.formatEther(value)
           })
 
           describe("burn() - remove liquidity", function () {
+              beforeEach(async function () {
+                  await tokenA.transfer(pair.address, toWei(1))
+                  await tokenB.transfer(pair.address, toWei(1))
+                  await pair.mint()
+              })
+
               it("removes liquidity", async function () {
                   await pair.burn()
 
@@ -101,6 +107,63 @@ const fromWei = (value: BigNumber) => ethers.utils.formatEther(value)
                   expect(await pair.totalSupply()).to.equal(1000) // MINIMUM_LIQUIDITY
                   expect(reserveA).to.equal(1500)
                   expect(reserveB).to.equal(1000)
+              })
+          })
+
+          describe("swap() - tokens swapping", function () {
+              beforeEach(async function () {
+                  await tokenA.transfer(pair.address, toWei(1))
+                  await tokenB.transfer(pair.address, toWei(2))
+                  await pair.mint()
+              })
+
+              it("swap basic scenario", async function () {
+                  await tokenA.transfer(pair.address, toWei(0.1))
+                  await pair.swap(0, toWei(0.18), deployer.address)
+
+                  const [reserveA, reserveB] = await pair.getReserves()
+
+                  expect(await tokenA.balanceOf(deployer.address)).to.eq(
+                      toWei(10).sub(toWei(1)).sub(toWei(0.1))
+                  )
+                  expect(await tokenB.balanceOf(deployer.address)).to.eq(
+                      toWei(10).sub(toWei(2)).add(toWei(0.18))
+                  )
+                  expect(reserveA).to.equal(toWei(1).add(toWei(0.1)))
+                  expect(reserveB).to.equal(toWei(2).sub(toWei(0.18)))
+              })
+
+              it("swap basic scenario reverse direction", async function () {
+                  await tokenB.transfer(pair.address, toWei(0.2))
+                  await pair.swap(toWei(0.09), 0, deployer.address)
+
+                  const [reserveA, reserveB] = await pair.getReserves()
+
+                  expect(await tokenA.balanceOf(deployer.address)).to.eq(
+                      toWei(10).sub(toWei(1)).add(toWei(0.09))
+                  )
+                  expect(await tokenB.balanceOf(deployer.address)).to.eq(
+                      toWei(10).sub(toWei(2)).sub(toWei(0.2))
+                  )
+                  expect(reserveA).to.equal(toWei(1).sub(toWei(0.09)))
+                  expect(reserveB).to.equal(toWei(2).add(toWei(0.2)))
+              })
+
+              it("swap bidirectional", async function () {
+                  await tokenA.transfer(pair.address, toWei(0.1))
+                  await tokenB.transfer(pair.address, toWei(0.2))
+                  await pair.swap(toWei(0.09), toWei(0.18), deployer.address)
+
+                  const [reserveA, reserveB] = await pair.getReserves()
+
+                  expect(await tokenA.balanceOf(deployer.address)).to.eq(
+                      toWei(10).sub(toWei(1)).sub(toWei(0.01))
+                  )
+                  expect(await tokenB.balanceOf(deployer.address)).to.eq(
+                      toWei(10).sub(toWei(2)).sub(toWei(0.02))
+                  )
+                  expect(reserveA).to.equal(toWei(1).add(toWei(0.01)))
+                  expect(reserveB).to.equal(toWei(2).add(toWei(0.02)))
               })
           })
       })
