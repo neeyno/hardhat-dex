@@ -10,6 +10,7 @@ abstract contract SwapPairInternal {
     error SwapPair__InsufficientLiquidityBurned();
     error SwapPair__TransferFailed();
     error SwapPair__InsufficientOutputAmount();
+    error SwapPair__InsufficientInputAmount();
     error SwapPair__InsufficientLiquidity();
     error SwapPair__InvalidK();
     error SwapPair__BalanceOverflow();
@@ -18,7 +19,12 @@ abstract contract SwapPairInternal {
     /* 
     EVENTS  
     */
-    event Burn(address indexed sender, uint256 amount0, uint256 amount1);
+    event Burn(
+        address indexed sender,
+        uint256 amount0,
+        uint256 amount1,
+        address to
+    );
     event Mint(address indexed sender, uint256 amount0, uint256 amount1);
     event Update(uint256 reserve0, uint256 reserve1);
     event Swap(

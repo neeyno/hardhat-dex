@@ -5,8 +5,9 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
 import { TokenA, TokenB, SwapPair } from "../../typechain-types"
 import { BigNumber } from "ethers"
 
-const toWei = (value: number) => ethers.utils.parseEther(value.toString())
-const fromWei = (value: BigNumber) => ethers.utils.formatEther(value)
+const toWei = (value: number): BigNumber =>
+    ethers.utils.parseEther(value.toString())
+const fromWei = (value: BigNumber): string => ethers.utils.formatEther(value)
 
 !developmentChains.includes(network.name)
     ? describe.skip
@@ -19,7 +20,7 @@ const fromWei = (value: BigNumber) => ethers.utils.formatEther(value)
           before(async () => {
               const accounts = await ethers.getSigners()
               deployer = accounts[0]
-              user = accounts[1]
+              //user = accounts[1]
           })
 
           beforeEach(async function () {
@@ -33,7 +34,7 @@ const fromWei = (value: BigNumber) => ethers.utils.formatEther(value)
               beforeEach(async function () {
                   await tokenA.transfer(pair.address, toWei(1))
                   await tokenB.transfer(pair.address, toWei(1))
-                  await pair.mint()
+                  await pair.mint(deployer.address)
               })
 
               it("provides initial liquidity", async function () {
@@ -50,7 +51,7 @@ const fromWei = (value: BigNumber) => ethers.utils.formatEther(value)
                   // mint new liquidity when there are some liquidity
                   await tokenA.transfer(pair.address, toWei(2))
                   await tokenB.transfer(pair.address, toWei(1))
-                  await pair.mint()
+                  await pair.mint(deployer.address)
 
                   const [reserveA, reserveB] = await pair.getReserves()
 
@@ -66,11 +67,14 @@ const fromWei = (value: BigNumber) => ethers.utils.formatEther(value)
               beforeEach(async function () {
                   await tokenA.transfer(pair.address, toWei(1))
                   await tokenB.transfer(pair.address, toWei(1))
-                  await pair.mint()
+                  await pair.mint(deployer.address)
               })
 
               it("removes liquidity", async function () {
-                  await pair.burn()
+                  const liquidity = await pair.balanceOf(deployer.address)
+                  await pair.transfer(pair.address, liquidity)
+
+                  await pair.burn(deployer.address)
 
                   const [reserveA, reserveB] = await pair.getReserves()
 
@@ -90,9 +94,12 @@ const fromWei = (value: BigNumber) => ethers.utils.formatEther(value)
               it("removes liquidity with unbalanced reserves", async function () {
                   await tokenA.transfer(pair.address, toWei(2))
                   await tokenB.transfer(pair.address, toWei(1))
-                  await pair.mint()
+                  await pair.mint(deployer.address)
 
-                  await pair.burn()
+                  const liquidity = await pair.balanceOf(deployer.address)
+                  await pair.transfer(pair.address, liquidity)
+
+                  await pair.burn(deployer.address)
 
                   const [reserveA, reserveB] = await pair.getReserves()
 
@@ -114,12 +121,14 @@ const fromWei = (value: BigNumber) => ethers.utils.formatEther(value)
               beforeEach(async function () {
                   await tokenA.transfer(pair.address, toWei(1))
                   await tokenB.transfer(pair.address, toWei(2))
-                  await pair.mint()
+                  await pair.mint(deployer.address)
               })
 
               it("swap basic scenario", async function () {
+                  const amountOut = toWei(0.183322178776029826)
+
                   await tokenA.transfer(pair.address, toWei(0.1))
-                  await pair.swap(0, toWei(0.18), deployer.address)
+                  await pair.swap(0, amountOut, deployer.address, "0x")
 
                   const [reserveA, reserveB] = await pair.getReserves()
 
@@ -135,7 +144,7 @@ const fromWei = (value: BigNumber) => ethers.utils.formatEther(value)
 
               it("swap basic scenario reverse direction", async function () {
                   await tokenB.transfer(pair.address, toWei(0.2))
-                  await pair.swap(toWei(0.09), 0, deployer.address)
+                  await pair.swap(toWei(0.09), 0, deployer.address, "0x")
 
                   const [reserveA, reserveB] = await pair.getReserves()
 
@@ -152,7 +161,12 @@ const fromWei = (value: BigNumber) => ethers.utils.formatEther(value)
               it("swap bidirectional", async function () {
                   await tokenA.transfer(pair.address, toWei(0.1))
                   await tokenB.transfer(pair.address, toWei(0.2))
-                  await pair.swap(toWei(0.09), toWei(0.18), deployer.address)
+                  await pair.swap(
+                      toWei(0.09),
+                      toWei(0.18),
+                      deployer.address,
+                      "0x"
+                  )
 
                   const [reserveA, reserveB] = await pair.getReserves()
 
@@ -164,6 +178,19 @@ const fromWei = (value: BigNumber) => ethers.utils.formatEther(value)
                   )
                   expect(reserveA).to.equal(toWei(1).add(toWei(0.01)))
                   expect(reserveB).to.equal(toWei(2).add(toWei(0.02)))
+              })
+
+              it("reverts with invalid K", async function () {
+                  await tokenA.transfer(pair.address, toWei(0.1))
+
+                  await expect(
+                      pair.swap(
+                          0,
+                          toWei(0.181322178776029827),
+                          deployer.address,
+                          "0x"
+                      )
+                  ).to.be.revertedWithCustomError(pair, "SwapPair__InvalidK")
               })
           })
       })
